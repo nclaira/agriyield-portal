@@ -1,17 +1,13 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import "leaflet/dist/leaflet.css"; // Add this line
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "AgriYield Portal",
-  description: "NISR Hackathon 2026 - Post-Harvest Risk Engine",
+  title: 'AgriYield Portal — Post-Harvest Risk Intelligence',
+  description:
+    'Geospatial dashboard tracking post-harvest storage risk across Rwandan districts.',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>{children}</body>

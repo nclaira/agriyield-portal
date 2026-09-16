@@ -1,0 +1,33 @@
+{
+  "..\\node_modules\\next\\dist\\client\\index.js -> ../pages/_app": {
+    "id": 5139,
+    "files": [
+      "static/chunks/139.7a5a8e93a21948c1.js"
+    ]
+  },
+  "..\\node_modules\\next\\dist\\client\\index.js -> ../pages/_error": {
+    "id": 1646,
+    "files": [
+      "static/chunks/646.f342b7cffc01feb0.js"
+    ]
+  },
+  "app\\page.tsx -> @/components/MapComponent": {
+    "id": 1018,
+    "files": [
+      "static/chunks/18.b06f0b65a9edf6ad.js"
+    ]
+  },
+  "components\\MapComponent.tsx -> leaflet": {
+    "id": 5027,
+    "files": [
+      "static/chunks/d0deef33.cac6acee3fffe7af.js"
+    ]
+  },
+  "components\\MapComponent.tsx -> leaflet/dist/leaflet.css": {
+    "id": 5603,
+    "files": [
+      "static/css/55693049b062c6a3.css",
+      "static/chunks/603.7888018357486e47.js"
+    ]
+  }
+}

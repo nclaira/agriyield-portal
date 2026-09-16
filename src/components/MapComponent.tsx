@@ -1,86 +1,75 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { useEffect, useRef } from 'react';
+import type { DistrictRisk } from '@/lib/district-risk.data';
 
-interface RiskData {
-  district: string;
-  riskScore: number;
-  riskCategory: string;
-  crop: string;
-}
+const CATEGORY_COLOR: Record<DistrictRisk['riskCategory'], string> = {
+  HIGH:   '#ef4444',
+  MEDIUM: '#f59e0b',
+  LOW:    '#10b981',
+};
 
-function SetBounds({ geoJsonData }: { geoJsonData: any }) {
-  const map = useMap();
-  useEffect(() => {
-    if (geoJsonData && map) {
-      const geoJsonLayer = L.geoJSON(geoJsonData);
-      const bounds = geoJsonLayer.getBounds();
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [20, 20] });
-      }
-    }
-  }, [geoJsonData, map]);
-  return null;
-}
-
-export default function MapComponent({ riskData }: { riskData: RiskData[] }) {
-  const [geoJsonData, setGeoJsonData] = useState<any>(null);
+export default function MapComponent({ riskData }: { riskData: DistrictRisk[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef       = useRef<import('leaflet').Map | null>(null);
+  const layerRef     = useRef<import('leaflet').LayerGroup | null>(null);
 
   useEffect(() => {
-    fetch('/data/rwanda-districts.geojson')
-      .then((res) => res.json())
-      .then((data) => setGeoJsonData(data))
-      .catch((err) => console.error('GeoJSON load error:', err));
+    let cancelled = false;
+    (async () => {
+      const L = await import('leaflet');
+      await import('leaflet/dist/leaflet.css');
+      if (cancelled || !containerRef.current || mapRef.current) return;
+
+      const map = L.map(containerRef.current, {
+        center: [-2.05, 29.9],
+        zoom: 9,
+        zoomControl: true,
+        attributionControl: true,
+      });
+
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        { attribution: 'Tiles &copy; Esri', maxZoom: 16 },
+      ).addTo(map);
+
+      layerRef.current = L.layerGroup().addTo(map);
+      mapRef.current   = map;
+    })();
+    return () => {
+      cancelled = true;
+      mapRef.current?.remove();
+      mapRef.current   = null;
+      layerRef.current = null;
+    };
   }, []);
 
-  const getDistrictColor = (districtName: string) => {
-    const match = riskData.find((d) => d.district.toLowerCase() === districtName.toLowerCase());
-    if (!match) return '#cbd5e1';
-    if (match.riskCategory === 'HIGH') return '#ef4444';
-    if (match.riskCategory === 'MEDIUM') return '#f59e0b';
-    return '#10b981';
-  };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const L = await import('leaflet');
+      if (cancelled || !layerRef.current) return;
+      layerRef.current.clearLayers();
+      for (const d of riskData) {
+        const color = CATEGORY_COLOR[d.riskCategory];
+        const gap   = Math.max(0, d.yieldTonnes - d.storageCapacityTonnes);
+        L.circleMarker([d.lat, d.lng], {
+          radius: 8 + d.riskScore / 8,
+          color, weight: 2, fillColor: color, fillOpacity: 0.35,
+        }).bindPopup(
+          `<div style="font-family:ui-sans-serif,system-ui;min-width:180px;color:#e2e8f0">
+            <strong style="font-size:14px;color:#fff">${d.district}</strong>
+            <div style="margin-top:4px;color:#94a3b8;font-size:12px">${d.province} Province &middot; ${d.crop}</div>
+            <div style="margin-top:8px;font-size:12px">Yield: <b style="color:#fff">${d.yieldTonnes.toLocaleString()} t</b></div>
+            <div style="font-size:12px">Storage: <b style="color:#fff">${d.storageCapacityTonnes.toLocaleString()} t</b></div>
+            <div style="font-size:12px">Gap: <b style="color:${color}">${gap.toLocaleString()} t</b></div>
+            <div style="margin-top:6px;font-size:12px">Risk: <b style="color:${color}">${d.riskScore} &mdash; ${d.riskCategory}</b></div>
+          </div>`,
+        ).addTo(layerRef.current);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [riskData]);
 
-  const styleFeature = (feature: any) => {
-    const name = feature.properties.ADM2_EN || feature.properties.name || '';
-    return {
-      fillColor: getDistrictColor(name),
-      weight: 1.5,
-      opacity: 1,
-      color: '#ffffff',
-      fillOpacity: 0.7,
-    };
-  };
-
-  const onEachFeature = (feature: any, layer: any) => {
-    const name = feature.properties.ADM2_EN || feature.properties.name || 'Unknown District';
-    const match = riskData.find((d) => d.district.toLowerCase() === name.toLowerCase());
-    
-    const tooltipContent = match
-      ? `<strong>${name}</strong><br/>Crop: ${match.crop}<br/>Risk: ${match.riskScore} (${match.riskCategory})`
-      : `<strong>${name}</strong><br/>No SAS Data Available`;
-
-    layer.bindTooltip(tooltipContent, { sticky: true });
-  };
-
-  if (!geoJsonData) return <div className="p-4 text-slate-500">Loading geospatial layers...</div>;
-
-  return (
-    <div className="h-[550px] w-full rounded-xl overflow-hidden shadow-lg border border-slate-200">
-      <MapContainer 
-        center={[-1.9403, 29.8739]} 
-        zoom={9} 
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer 
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        />
-        <GeoJSON data={geoJsonData} style={styleFeature} onEachFeature={onEachFeature} />
-        <SetBounds geoJsonData={geoJsonData} />
-      </MapContainer>
-    </div>
-  );
+  return <div ref={containerRef} className="h-full w-full" style={{ background: '#0f172a' }} />;
 }
